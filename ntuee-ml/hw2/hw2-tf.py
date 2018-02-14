@@ -17,7 +17,7 @@ def getBatchData(seed_index, batch_size):
         y_batch.append(Y_train[seed_index[i]])
     return np.array(x_batch), np.array(y_batch)
 
-seed_index=np.arange(1024)
+val_len = 500
 
 X_train = genfromtxt('X_train', delimiter=',')
 Y_train = genfromtxt('Y_train', delimiter=',')
@@ -29,15 +29,17 @@ X_train = np.array(X_train[1:]).astype('float32')
 Y_train = np.array(Y_train[1:]).astype('float32')
 X_test = np.array(X_test[1:]).astype('float32')
 
+seed_index=np.arange(len(X_train)-val_len)
+
 dim = len(X_train[0])
 
 # Parameters
-num_steps = 500
+num_steps = 300
 batch_size = 1024
 num_classes = 2
 num_features = 106
-num_trees = 1000
-max_nodes = 1000
+num_trees = 500
+max_nodes = 200
 
 # Input and Target data
 X = tf.placeholder(tf.float32, shape=[None, num_features])
@@ -55,6 +57,7 @@ forest_graph = tensor_forest.RandomForestGraphs(hparams)
 # Get training graph and loss
 train_op = forest_graph.training_graph(X, Y)
 loss_op = forest_graph.training_loss(X, Y)
+val_op = forest_graph.validation_loss(X_train[len(X_train)-val_len:], Y_train[len(Y_train)-val_len:])
 # Add an op to initialize the variables.
 init_op = tf.global_variables_initializer()
 # Measure the accuracy
@@ -76,16 +79,16 @@ sess.run(init_vars)
 for i in range(1, num_steps + 1):
     # Prepare Data
     # Get the next batch of MNIST data (only images are needed, not labels)
-    s = random.randint(1,32561)
-    # batch_x = X_train[s:s+2047:2]
-    # batch_y = Y_train[s:s+2047:2]
-    print(seed_index,batch_size)
+    s = random.randint(1,len(X_train)-val_len)
     batch_x, batch_y = getBatchData(seed_index, batch_size)
 
     _, l = sess.run([train_op, loss_op], feed_dict={X: batch_x, Y: batch_y})
+    _, val_l = sess.run([train_op, loss_op], feed_dict={X: X_train[len(X_train)-val_len:], Y: Y_train[len(X_train)-val_len:]})
     if i % 50 == 0 or i == 1:
         acc = sess.run(accuracy_op, feed_dict={X: batch_x, Y: batch_y})
+        val_acc = sess.run(accuracy_op, feed_dict={X: X_train[len(X_train)-val_len:], Y: Y_train[len(X_train)-val_len:]})
         print('Step %i, Loss: %f, Acc: %f' % (i, l, acc))
+        print('Step %i, Val Loss: %f, Val Acc: %f' % (i, val_l, val_acc))
 
 classifier =SKCompat(tf.contrib.tensor_forest.client.random_forest.TensorForestEstimator(hparams))
 
