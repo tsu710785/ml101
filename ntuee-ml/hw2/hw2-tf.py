@@ -7,9 +7,23 @@ import numpy as np
 from numpy import genfromtxt
 import random
 
+# 取random data作為training data
+def getBatchData(seed_index, batch_size):
+    x_batch = []
+    y_batch = []
+    np.random.shuffle(seed_index)
+    for i in range(batch_size):
+        x_batch.append(X_train[seed_index[i]])
+        y_batch.append(Y_train[seed_index[i]])
+    return np.array(x_batch), np.array(y_batch)
+
+seed_index=np.arange(1024)
+
 X_train = genfromtxt('X_train', delimiter=',')
 Y_train = genfromtxt('Y_train', delimiter=',')
 X_test = genfromtxt('X_test', delimiter=',')
+
+## tree method不需做normalize
 
 X_train = np.array(X_train[1:]).astype('float32')
 Y_train = np.array(Y_train[1:]).astype('float32')
@@ -22,8 +36,8 @@ num_steps = 500
 batch_size = 1024
 num_classes = 2
 num_features = 106
-num_trees = 100
-max_nodes = 500
+num_trees = 1000
+max_nodes = 1000
 
 # Input and Target data
 X = tf.placeholder(tf.float32, shape=[None, num_features])
@@ -63,8 +77,11 @@ for i in range(1, num_steps + 1):
     # Prepare Data
     # Get the next batch of MNIST data (only images are needed, not labels)
     s = random.randint(1,32561)
-    batch_x = X_train[s:s+1023]
-    batch_y = Y_train[s:s+1023]
+    # batch_x = X_train[s:s+2047:2]
+    # batch_y = Y_train[s:s+2047:2]
+    print(seed_index,batch_size)
+    batch_x, batch_y = getBatchData(seed_index, batch_size)
+
     _, l = sess.run([train_op, loss_op], feed_dict={X: batch_x, Y: batch_y})
     if i % 50 == 0 or i == 1:
         acc = sess.run(accuracy_op, feed_dict={X: batch_x, Y: batch_y})
@@ -73,10 +90,10 @@ for i in range(1, num_steps + 1):
 classifier =SKCompat(tf.contrib.tensor_forest.client.random_forest.TensorForestEstimator(hparams))
 
 classifier.fit(x=X_train, y=Y_train)
+
 y_out = classifier.predict(x=X_test)
 
 with open('Y_test1', 'w') as f:
     f.write('id,label\n')
     for i, l in enumerate(y_out['classes']):
         f.write('%d,%d\n' % ((i+1),l))
-
